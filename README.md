@@ -66,7 +66,7 @@ pip install -r requirements.txt
 ### 4. Set Up the Database
 You only need to do this once.
 1.  In a PostgreSQL tool like `pgAdmin` or `psql`, create a new, empty database named `ocean_insight`.
-2.  in sql using python argo_load.py to injest data from argo database to postgresql and sql_to_chroma.py file to update chromadb database
+2.  in sql using python argo_load.py to injest data from argo database or can use the .nc files in data for testing add them  to postgresql and sql_to_chroma.py file to update chromadb database
 3.  Run our ingestion script to populate the database with the sample ARGO data included in this repository.
     ```bash
     python ingest_data.py
@@ -88,6 +88,6 @@ The application should now be fully functional.
 * A.Haneeth
 * Ansh yemul
 * Rajan Nayak
-* HrithiNka K
+* Hruthika K
 * K.yaswanth
 * Nandhan
