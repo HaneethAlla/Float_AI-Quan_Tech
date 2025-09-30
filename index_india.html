@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ocean Insight: AI-Powered Argo Explorer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet" />
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+    <style>
+        #map {
+            height: 100%;
+            width: 100%;
+            position: relative;
+        }
+
+        .chat-message.user {
+            background-color: #e3f2fd;
+        }
+
+        .chat-message.bot {
+            background-color: #f5f5f5;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Styles for plots inside the chat */
+        .chat-plot-container {
+            height: 350px;
+            width: 100%;
+        }
+    </style>
+</head>
+
+<body class="bg-gradient-to-b from-blue-50 to-cyan-50 min-h-screen">
+    <div id="landing"
+        class="fixed inset-0 bg-blue-900 flex flex-col items-center justify-center z-50 transition-opacity duration-500">
+        <div class="text-center px-6 max-w-4xl" data-aos="fade-up">
+            <h1 class="text-5xl font-bold text-white mb-4">Ocean Insight</h1>
+            <h2 class="text-2xl text-blue-200 mb-8">AI-Powered Argo Explorer</h2>
+            <p class="text-blue-100 mb-10 text-lg">
+                Transform ARGO NetCDF ocean data into interactive visual insights with
+                our intelligent analysis platform.
+            </p>
+            <button onclick="startDemo()"
+                class="bg-white text-blue-900 px-8 py-3 rounded-full font-bold hover:bg-blue-100 transition-all flex items-center mx-auto">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2">
+                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                </svg> Launch Demo
+            </button>
+        </div>
+        <div class="absolute bottom-4 text-blue-300">
+            <p>Smart India Hackathon 2024</p>
+        </div>
+    </div>
+
+    <div id="app" class="hidden h-screen flex flex-col">
+        <header class="bg-blue-900 text-white p-4 flex justify-between items-center shadow-md">
+            <div class="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon>
+                </svg>
+                <h1 class="text-xl font-bold">Ocean Insight</h1>
+            </div>
+            <div class="flex items-center space-x-4">
+                <button id="upload-btn"
+                    class="bg-blue-700 hover:bg-blue-600 px-3 py-1 rounded-md text-sm flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        class="mr-1">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="17 8 12 3 7 8"></polyline>
+                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                    </svg> Upload NetCDF
+                </button>
+                <input type="file" id="file-input" class="hidden" accept=".nc" />
+
+                <div class="relative">
+                    <button id="mode-btn"
+                        class="bg-blue-700 hover:bg-blue-600 px-3 py-1 rounded-md text-sm flex items-center w-44 justify-between">
+                        <span id="mode-text">Scientific Mode</span>
+                        <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                            xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7">
+                            </path>
+                        </svg>
+                    </button>
+                    <div id="mode-dropdown"
+                        class="absolute right-0 mt-2 w-44 bg-white rounded-md shadow-lg z-50 hidden">
+                        <div class="py-1 ring-1 ring-black ring-opacity-5 rounded-md">
+                            <a href="#" class="mode-option block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                data-mode="Scientific Mode">Scientific Mode</a>
+                            <a href="#" class="mode-option block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                data-mode="Policy maker Mode">Policy maker Mode</a>
+                            <a href="#" class="mode-option block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                data-mode="Student Mode">Student Mode</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="flex flex-1" style="overflow: hidden;">
+            <div id="map-container" class="flex-1 relative bg-gray-200">
+                <div id="map" class="h-full w-full z-10"></div>
+                <div id="file-info" class="absolute top-4 left-4 bg-white p-3 rounded-lg shadow-lg z-20 hidden">
+                    <div id="file-name" class="font-medium"></div>
+                </div>
+                <div id="map-controls" class="absolute top-4 right-4 bg-white p-3 rounded-lg shadow-lg z-20">
+                    <label for="trajectory-select" class="block text-sm font-medium text-gray-700 mb-1">Trajectory
+                        Type</label>
+                    <select id="trajectory-select"
+                        class="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
+                        <option value="spiral">Spiral</option>
+                        <option value="linear-ew">Linear (East-West)</option>
+                        <option value="linear-ns">Linear (North-South)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="resizer"
+                class="w-2 cursor-col-resize bg-gray-300 hover:bg-blue-500 transition-colors flex-shrink-0"></div>
+
+            <div id="chat-container" style="width: 600px;"
+                class="bg-white border-l border-gray-200 flex flex-col relative z-30 flex-shrink-0">
+                <div class="p-4 border-b border-gray-200 flex items-center bg-white">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        class="mr-2">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                    <h2 class="text-lg font-semibold">Chat Assistant</h2>
+                </div>
+                <div id="chat-messages" class="flex-1 overflow-y-auto p-4 space-y-4 bg-white relative">
+                    <div class="chat-message bot rounded-lg p-3">
+                        <p>Hello! The ARGO float's trajectory is displayed on the map. You can ask me questions about:
+                        </p>
+                        <ul class="list-disc ml-4 mt-2 text-sm">
+                            <li>"Show me the temperature profile"</li>
+                            <li>"What is the salinity data?"</li>
+                            <li>"Compare temperature and salinity"</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="p-4 border-t border-gray-200 bg-white relative">
+                    <div class="flex items-center space-x-2">
+                        <input type="text" id="chat-input"
+                            class="flex-1 border rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500"
+                            placeholder="Type your message..." />
+                        <button id="voice-btn" title="Use voice input"
+                            class="bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round">
+                                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                                <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                                <line x1="12" y1="19" x2="12" y2="22"></line>
+                            </svg>
+                        </button>
+                        <button id="send-btn"
+                            class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round">
+                                <line x1="22" y1="2" x2="11" y2="13"></line>
+                                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    AOS.init();
+    const API_URL = "http://127.0.0.1:8000"; // Base URL for the backend
+
+    // --- Global State ---
+    const state = { map: null }; // Simplified state for the map instance
+
+    // --- Core App & Map Logic ---
+    function startDemo() {
+        const landingPage = document.getElementById("landing");
+        const appContainer = document.getElementById("app");
+        landingPage.classList.add("opacity-0");
+        setTimeout(() => {
+            landingPage.classList.add("hidden");
+            appContainer.classList.remove("hidden");
+            // When the demo starts, load the map with REAL data from the backend
+            initializeMapWithRealData();
+        }, 500);
+    }
+
+    async function initializeMapWithRealData() {
+        try {
+            if (state.map) state.map.remove();
+            state.map = L.map('map').setView([15.0, 80.0], 5);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(state.map);
+
+            const response = await fetch(`${API_URL}/trajectories`);
+            if (!response.ok) throw new Error("Could not fetch trajectory data.");
+            
+            const trajectories = await response.json();
+            
+            for (const platformId in trajectories) {
+                const latlngs = trajectories[platformId];
+                if (latlngs.length > 1) {
+                    const polyline = L.polyline(latlngs, { weight: 3, opacity: 0.8 }).addTo(state.map);
+                    polyline.bindPopup(`Trajectory for Float ID: ${platformId}`);
+                }
+            }
+        } catch (error) {
+            console.error("Failed to initialize map with real data:", error);
+        }
+    }
+
+
+    // --- Chat Functionality ---
+    const chatInput = document.getElementById("chat-input");
+    const sendBtn = document.getElementById("send-btn");
+    const chatMessages = document.getElementById("chat-messages");
+
+    function sendMessage() {
+        const userQuery = chatInput.value.trim();
+        if (!userQuery) return;
+
+        addUserMessage(userQuery);
+        chatInput.value = "";
+
+        const typingIndicator = createTypingIndicator();
+        chatMessages.appendChild(typingIndicator);
+        scrollToBottom();
+
+        fetch(`${API_URL}/analyze`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query: userQuery }),
+        })
+        .then(response => {
+            if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+            return response.json();
+        })
+        .then(data => {
+            chatMessages.removeChild(typingIndicator);
+            const botMsg = document.createElement("div");
+            botMsg.className = "chat-message bot rounded-lg p-3";
+            const insightText = document.createElement("p");
+            insightText.textContent = data.insight_text;
+            botMsg.appendChild(insightText);
+            chatMessages.appendChild(botMsg);
+            renderChartsFromAPI(botMsg, data.data_for_charts);
+            scrollToBottom();
+        })
+        .catch(error => {
+            chatMessages.removeChild(typingIndicator);
+            const botMsg = document.createElement("div");
+            botMsg.className = "chat-message bot rounded-lg p-3";
+            botMsg.innerHTML = `<p class="text-red-500">Error: ${error.message}</p>`;
+            chatMessages.appendChild(botMsg);
+            scrollToBottom();
+        });
+    }
+
+    function renderChartsFromAPI(messageElement, chartData) {
+        for (const key in chartData) {
+            const records = chartData[key];
+            if (records.length === 0) continue;
+            const platformId = records[0].platform_id || 'Unknown';
+            const plotContainer = document.createElement("div");
+            plotContainer.className = "mt-2";
+            const tempPlotDiv = document.createElement("div");
+            tempPlotDiv.className = "chat-plot-container";
+            const salPlotDiv = document.createElement("div");
+            salPlotDiv.className = "chat-plot-container mt-2";
+            plotContainer.appendChild(tempPlotDiv);
+            plotContainer.appendChild(salPlotDiv);
+            messageElement.appendChild(plotContainer);
+            const pressure = records.map(r => r.pressure);
+            const temperature = records.map(r => r.temperature);
+            const salinity = records.map(r => r.salinity);
+            Plotly.newPlot(tempPlotDiv, 
+                [{ x: temperature, y: pressure, mode: 'lines+markers', name: `Temp (${platformId})` }], 
+                { title: `Temperature Profile`, margin: { t: 30, b: 40, l: 50, r: 10 }, yaxis: { autorange: 'reversed' } },
+                { responsive: true }
+            );
+            Plotly.newPlot(salPlotDiv, 
+                [{ x: salinity, y: pressure, mode: 'lines+markers', name: `Salinity (${platformId})`, marker: { color: 'green' } }], 
+                { title: `Salinity Profile`, margin: { t: 30, b: 40, l: 50, r: 10 }, yaxis: { autorange: 'reversed' } },
+                { responsive: true }
+            );
+        }
+    }
+
+    function addUserMessage(message) {
+        const userMsg = document.createElement("div");
+        userMsg.className = "chat-message user rounded-lg p-3 self-end text-right";
+        userMsg.innerHTML = `<p>${message}</p>`;
+        chatMessages.appendChild(userMsg);
+        scrollToBottom();
+    }
+
+    function createTypingIndicator() {
+        const indicator = document.createElement("div");
+        indicator.className = "chat-message bot rounded-lg p-3 flex items-center";
+        indicator.innerHTML = `<div class="flex space-x-2"><div class="w-2 h-2 bg-blue-600 rounded-full animate-bounce"></div><div class="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style="animation-delay: 0.2s"></div><div class="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style="animation-delay: 0.4s"></div></div>`;
+        return indicator;
+    }
+
+    function scrollToBottom() {
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    // --- UI EVENT LISTENERS ---
+    // Your original event listeners are preserved here
+    chatInput.addEventListener("keypress", (e) => {
+        if (e.key === "Enter") sendMessage();
+    });
+    sendBtn.addEventListener("click", sendMessage);
+
+    document.getElementById("upload-btn").addEventListener("click", () => {
+        document.getElementById("file-input").click();
+    });
+    document.getElementById("file-input").addEventListener("change", (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const botMsg = document.createElement("div");
+            botMsg.className = "chat-message bot rounded-lg p-3";
+            botMsg.innerHTML = `<p>File "${file.name}" uploaded. The map shows data from the server database.</p>`;
+            chatMessages.appendChild(botMsg);
+            scrollToBottom();
+            document.getElementById('file-name').textContent = `Loaded: ${file.name}`;
+            document.getElementById('file-info').classList.remove('hidden');
+        }
+    });
+
+    const voiceBtn = document.getElementById('voice-btn');
+    if (voiceBtn) {
+        voiceBtn.addEventListener('click', () => {
+            alert('Voice input is not yet implemented in this demo.');
+        });
+    }
+
+    const modeBtn = document.getElementById('mode-btn');
+    const modeDropdown = document.getElementById('mode-dropdown');
+    const modeText = document.getElementById('mode-text');
+    const modeOptions = document.querySelectorAll('.mode-option');
+    modeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        modeDropdown.classList.toggle('hidden');
+    });
+    modeOptions.forEach(option => {
+        option.addEventListener('click', (e) => {
+            e.preventDefault();
+            const selectedMode = e.target.getAttribute('data-mode');
+            modeText.textContent = selectedMode;
+            modeDropdown.classList.add('hidden');
+        });
+    });
+    window.addEventListener('click', (e) => {
+        if (!modeDropdown.classList.contains('hidden') && !modeBtn.contains(e.target)) {
+            modeDropdown.classList.add('hidden');
+        }
+    });
+    
+    // The resizer logic is preserved
+    const resizer = document.getElementById('resizer');
+    const chatContainer = document.getElementById('chat-container');
+    let isResizing = false;
+    resizer.addEventListener('mousedown', (e) => {
+        isResizing = true;
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', stopResizing);
+    });
+    function handleMouseMove(e) {
+        if (!isResizing) return;
+        const totalWidth = document.getElementById('app').offsetWidth;
+        const newChatWidth = totalWidth - e.clientX;
+        if (newChatWidth > 350 && newChatWidth < (totalWidth * 0.75)) {
+            chatContainer.style.width = `${newChatWidth}px`;
+        }
+    }
+    function stopResizing() {
+        isResizing = false;
+        document.body.style.cursor = 'default';
+        document.body.style.userSelect = 'auto';
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', stopResizing);
+        if (state.map) {
+            state.map.invalidateSize({ debounceMoveend: true });
+        }
+        const plotContainers = document.querySelectorAll('.chat-plot-container');
+        plotContainers.forEach(container => {
+            Plotly.Plots.resize(container);
+        });
+    }
+</script>
+
+
+</body>
+
+</html>
