@@ -35,6 +35,8 @@ Ocean Insight bridges this gap by providing a seamless, conversational interface
 
 ## ⚙️ Setup and Installation Guide
 
+you can see the demo pictures to see how the application works 
+
 Follow these steps to set up and run the project locally.
 
 ### Prerequisites
@@ -82,6 +84,8 @@ You only need to do this once.
 The application should now be fully functional.
 
 ---
+
+
 
 ## 🧑‍💻 Team Members
 
